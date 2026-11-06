@@ -18,6 +18,3 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck && bun test && bun run build
       - run: npm publish --provenance --access public
-        env:
-          # Token until trusted publishing is set on npm; provenance still comes from OIDC.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
