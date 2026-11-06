@@ -53,6 +53,10 @@
 	"files": [
 		"dist"
 	],
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
 	"scripts": {
 		"build": "rm -rf dist && bun build src/index.ts --outdir dist --target browser --format esm --minify-syntax --minify-whitespace --sourcemap=linked && tsc -p tsconfig.json --emitDeclarationOnly --outDir dist",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
