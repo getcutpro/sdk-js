@@ -1,41 +1,21 @@
 name: Release
-
 on:
   push:
     tags: ["v*.*.*"]
-
 permissions:
-  contents: write
+  contents: read
   id-token: write
-
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      # npm 11.5 or later publishes through trusted publishing, with no token.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      # Trusted publishing (OIDC, no token) needs npm 11.5.1 or newer.
-      - run: npm install -g npm@latest
-      - run: npm install --no-audit --no-fund
-      - name: Tag matches package.json
-        run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-      - name: Publish to npm with provenance
-        run: |
-          name="$(node -p 'require("./package.json").name')"
-          if npm view "$name@${GITHUB_REF_NAME#v}" version >/dev/null 2>&1; then
-            echo "$name@${GITHUB_REF_NAME#v} is already on npm."
-          else
-            npm publish --provenance --access public
-          fi
-      - name: GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          notes="$(awk -v version="${GITHUB_REF_NAME#v}" '/^## / { keep = index($0, "## " version " ") == 1; next } keep' CHANGELOG.md)"
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "$notes"
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck && bun test && bun run build
+      - run: npm publish --provenance --access public

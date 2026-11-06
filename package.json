@@ -1,7 +1,7 @@
 {
 	"name": "@cutpro/sdk",
 	"version": "0.1.0",
-	"description": "Cut.Pro API client for Node and edge: Seedance, Wan, Kling, Veo, Nano Banana, Seedream, GPT Image and Gemini TTS with one key, priced per second, image or 1,000 characters",
+	"description": "Cut.Pro API client for Bun, Node, Deno, edge and the browser: Seedance, Wan, Kling, Veo, Nano Banana, Seedream, GPT Image and Gemini TTS with one key, priced per second, image or 1,000 characters",
 	"license": "MIT",
 	"author": "Cut.Pro",
 	"homepage": "https://cut.pro/docs/en/generations",
@@ -11,61 +11,56 @@
 	},
 	"bugs": "https://github.com/getcutpro/sdk-js/issues",
 	"keywords": [
-		"cutpro",
 		"ai",
 		"api",
-		"sdk",
-		"video-generation",
-		"image-generation",
-		"text-to-speech",
-		"text-to-video",
-		"image-to-video",
-		"seedance",
-		"seedance-api",
-		"wan",
-		"kling",
-		"veo",
-		"nano-banana",
-		"seedream",
+		"browser",
+		"bun",
+		"cutpro",
+		"deno",
+		"edge",
+		"gemini-tts",
 		"gpt-image",
 		"grok-imagine",
+		"image-generation",
+		"image-to-video",
+		"kling",
 		"minimax",
-		"gemini-tts",
-		"pix"
+		"nano-banana",
+		"pix",
+		"sdk",
+		"seedance",
+		"seedance-api",
+		"seedream",
+		"text-to-speech",
+		"text-to-video",
+		"veo",
+		"video-generation",
+		"wan"
 	],
 	"type": "module",
 	"sideEffects": false,
 	"engines": {
-		"node": ">=18"
+		"node": ">=20.3",
+		"bun": ">=1.1"
 	},
-	"main": "./dist/index.cjs",
-	"module": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"exports": {
 		".": {
-			"import": {
-				"types": "./dist/index.d.ts",
-				"default": "./dist/index.js"
-			},
-			"require": {
-				"types": "./dist/index.d.cts",
-				"default": "./dist/index.cjs"
-			}
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
 		}
 	},
 	"files": [
 		"dist"
 	],
 	"scripts": {
-		"build": "tsup src/index.ts --format esm,cjs --dts --clean",
-		"typecheck": "tsc --noEmit",
-		"test": "vitest run",
-		"prepublishOnly": "npm run typecheck && npm test && npm run build"
+		"build": "rm -rf dist && bun build src/index.ts --outdir dist --target browser --format esm --minify-syntax --minify-whitespace --sourcemap=linked && tsc -p tsconfig.json --emitDeclarationOnly --outDir dist",
+		"typecheck": "tsc -p tsconfig.json --noEmit",
+		"test": "bun test",
+		"prepublishOnly": "bun run typecheck && bun test && bun run build"
 	},
 	"devDependencies": {
-		"@types/node": "^22.20.5",
-		"tsup": "^9.0.0",
-		"typescript": "^5.9.3",
-		"vitest": "^5.1.0"
+		"@types/bun": "1.3.14",
+		"typescript": "5.9.3"
 	}
 }

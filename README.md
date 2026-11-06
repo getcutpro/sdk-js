@@ -1,13 +1,14 @@
-# Cut.Pro SDK for Node.js and edge: Seedance, Wan, Kling, Veo and Nano Banana API
+# Cut.Pro SDK for Bun, Node, Deno, edge and the browser: Seedance, Wan, Kling, Veo and Nano Banana API
 
 [![npm](https://img.shields.io/npm/v/@cutpro/sdk)](https://www.npmjs.com/package/@cutpro/sdk) [![license](https://img.shields.io/npm/l/@cutpro/sdk)](LICENSE)
 
 One API key for video, image and voice models: Seedance 2.5, Wan 3, Kling O3, Veo 3.1, Gemini Omni Flash, Nano Banana Pro, Seedream 5, Qwen Image, GPT Image, Grok Imagine, MiniMax and Gemini TTS voices. Priced per second of video, per image or per 1,000 characters of voice, in reais and dollars: see the [live price list](https://cut.pro/en/models). Pay with Pix or card; companies get an invoice.
 
-Typed, zero dependencies, native `fetch`. Works on Node 18+, Bun, Deno, Cloudflare Workers and Vercel Edge.
+Typed, zero dependencies, 8 KB, one ES module on native `fetch` and Web Crypto. Built and tested with Bun; runs on Bun, Node 20.3+, Deno, Cloudflare Workers, Vercel Edge and in the browser through your own server.
 
 ```bash
-npm install @cutpro/sdk
+bun add @cutpro/sdk
+# or: npm install @cutpro/sdk, pnpm add @cutpro/sdk, deno add npm:@cutpro/sdk
 ```
 
 ## Quickstart
@@ -137,21 +138,68 @@ try {
 }
 ```
 
-`status` is `0` for errors raised by the client: `WAIT_TIMEOUT`, or a generation that ended `failed` (its `error_code` becomes `code`, and the credits come back on their own). Full list in the [error catalog](https://cut.pro/docs/en/errors).
+`status` is `0` for errors raised by the client: `WAIT_TIMEOUT`, `API_KEY_IN_BROWSER`, `PROXY_REQUIRED_IN_BROWSER`, `INSECURE_BASE_URL`, or a generation that ended `failed` (its `error_code` becomes `code`, and the credits come back on their own). Full list in the [error catalog](https://cut.pro/docs/en/errors).
+
+## In the browser
+
+The key spends credits, so it never goes to a page: the client refuses it there (`API_KEY_IN_BROWSER`). The page talks to your server, and `proxy()` forwards only what a generation needs (models, prices, quote, create, get) with the key added on the server.
+
+```ts
+// Server: Bun.serve, a Next.js route handler, Hono, Cloudflare Workers or Deno.
+import { proxy } from "@cutpro/sdk";
+
+Bun.serve({
+	routes: {
+		"/api/cutpro/*": (request) => proxy(request, { prefix: "/api/cutpro", authorize: (request) => isSignedIn(request) }),
+	},
+});
+```
+
+```ts
+// Page: same methods, no key.
+import { CutPro } from "@cutpro/sdk";
+
+const cutpro = new CutPro({ baseURL: "/api/cutpro" });
+const quote = await cutpro.generations.quote({ model: "bytedance/seedance-2-fast", prompt: "a dog surfing", seconds: 5 });
+```
+
+`authorize` is where you check your own session: whoever reaches the route spends your credits. Bodies over 1 MB are refused; upload files from the server with `media.upload`.
+
+## Webhooks
+
+```ts
+import { verifyWebhook } from "@cutpro/sdk";
+
+const secret = (await cutpro.generations.webhookSecret()).secret; // store it with your other secrets
+
+// In your webhook route, with the raw body before any JSON.parse:
+if (!(await verifyWebhook(await request.text(), request.headers.get("CutPro-Signature"), secret))) return new Response(null, { status: 401 });
+```
+
+It checks the HMAC of the exact body, refuses signatures older than five minutes and compares in constant time.
 
 ## Options
 
 ```ts
 new CutPro({
-	apiKey: "...", // defaults to process.env.CUTPRO_API_KEY
+	apiKey: "...", // server only; defaults to process.env.CUTPRO_API_KEY
 	workspaceId: "...", // only for a key that reaches more than one workspace
-	baseURL: "https://api.cut.pro/api/v1",
+	baseURL: "/api/cutpro", // your proxy in a browser; https://api.cut.pro/api/v1 by default
+	timeoutMs: 90_000, // per request, retries included
 	fetch: customFetch,
 	headers: { "X-Trace": "1" },
 });
 ```
 
-Every method takes `{ signal }` to cancel. Keep the key on the server: it spends credits.
+Every method takes `{ signal }` to cancel.
+
+## Security and reliability
+
+- The key only travels in the `X-Api-Key` header, never in a URL, and a redirect is refused so it never follows one to another host.
+- `baseURL` must be `https`, except on localhost.
+- `generations.create` sends an `Idempotency-Key` (a fresh UUID unless you pass one), so a retry or a repeated call never charges twice.
+- Network blips, `429` and `5xx` are retried twice with backoff, honoring `Retry-After`; uploads are never retried.
+- Each request has a timeout, and waiting uses the server's long poll instead of hammering it.
 
 ## Links
 
@@ -160,7 +208,7 @@ Every method takes `{ signal }` to cancel. Keep the key on the server: it spends
 
 ## Em português
 
-SDK oficial da Cut.Pro para Node.js: uma chave de API para Seedance 2.5, Wan 3, Kling O3, Veo 3.1, Nano Banana Pro, Seedream 5, GPT Image, Grok Imagine, MiniMax e vozes do Gemini TTS. Preço por segundo de vídeo, por imagem ou por 1.000 caracteres de voz, em reais: veja a [tabela de preços ao vivo](https://cut.pro/pt-BR/models). Pague com Pix ou cartão, com nota fiscal para empresas. Toda conta começa com créditos grátis.
+SDK oficial da Cut.Pro para Bun, Node, Deno, edge e navegador: uma chave de API para Seedance 2.5, Wan 3, Kling O3, Veo 3.1, Nano Banana Pro, Seedream 5, GPT Image, Grok Imagine, MiniMax e vozes do Gemini TTS. Preço por segundo de vídeo, por imagem ou por 1.000 caracteres de voz, em reais: veja a [tabela de preços ao vivo](https://cut.pro/pt-BR/models). Pague com Pix ou cartão, com nota fiscal para empresas. Toda conta começa com créditos grátis.
 
 ```ts
 import { CutPro } from "@cutpro/sdk";

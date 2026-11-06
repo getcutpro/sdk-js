@@ -1,11 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { CutPro, CutProError, type Generation } from "../src/index";
+import { describe, expect, it } from "bun:test";
+import { createHmac } from "node:crypto";
+import { CutPro, CutProError, proxy, verifyWebhook, type Fetch, type Generation } from "./index";
 
 type Sent = { method: string; url: URL; headers: Record<string, string>; body: string | FormData | undefined };
 
 function mockFetch(replies: Array<[number, object]>) {
 	const sent: Sent[] = [];
-	const fetcher: typeof fetch = async (input, init) => {
+	const fetcher: Fetch = async (input, init) => {
 		sent.push({
 			method: init?.method ?? "GET",
 			url: new URL(String(input)),
@@ -130,5 +131,80 @@ describe("CutPro", () => {
 		expect(sent[0]?.headers["content-type"]).toBeUndefined();
 		expect(sent[0]?.headers["x-workspace-id"]).toBe("ws");
 		expect(JSON.parse(String(sent[1]?.body))).toEqual({ url: "https://img.example/a.png" });
+	});
+});
+
+describe("security", () => {
+	it("refuses a plain http base url outside localhost", () => {
+		expect(() => new CutPro({ apiKey: "k", baseURL: "http://example.com/api" })).toThrow("INSECURE_BASE_URL");
+		expect(() => new CutPro({ apiKey: "k", baseURL: "http://localhost:3000/api" })).not.toThrow();
+	});
+
+	it("refuses a key and a missing proxy in a browser", () => {
+		const scope = globalThis as { window?: unknown; document?: unknown };
+		scope.window = { location: { origin: "https://app.example.com" } };
+		scope.document = {};
+		try {
+			expect(() => new CutPro({ apiKey: "k", baseURL: "/api/cutpro" })).toThrow("API_KEY_IN_BROWSER");
+			expect(() => new CutPro()).toThrow("PROXY_REQUIRED_IN_BROWSER");
+			expect(() => new CutPro({ baseURL: "/api/cutpro" })).not.toThrow();
+		} finally {
+			delete scope.window;
+			delete scope.document;
+		}
+	});
+
+	it("retries a 503 and sends the same idempotency key", async () => {
+		const { fetcher, sent } = mockFetch([[503, {}], [201, generation("processing")]]);
+		const cutpro = new CutPro({ apiKey: "k", fetch: fetcher });
+		await cutpro.generations.create({ model: "bytedance/seedance-2.5", prompt: "x", credits: 45 });
+		expect(sent).toHaveLength(2);
+		expect(sent[0]?.headers["idempotency-key"]).toBeTruthy();
+		expect(sent[1]?.headers["idempotency-key"]).toBe(sent[0]?.headers["idempotency-key"] ?? "");
+	});
+});
+
+describe("proxy", () => {
+	const upstream = mockFetch;
+
+	it("forwards an allowed call with the server key and drops the browser's headers", async () => {
+		const { fetcher, sent } = upstream([[200, { credits: 45 }]]);
+		const request = new Request("https://app.example.com/api/cutpro/generations/quote", { method: "POST", headers: { "Content-Type": "application/json", Cookie: "session=1", "X-Api-Key": "stolen" }, body: "{}" });
+		const response = await proxy(request, { apiKey: "server-key", prefix: "/api/cutpro", fetch: fetcher });
+		expect(response.status).toBe(200);
+		expect(sent[0]?.url.href).toBe("https://api.cut.pro/api/v1/generations/quote");
+		expect(sent[0]?.headers["x-api-key"]).toBe("server-key");
+		expect(sent[0]?.headers.cookie).toBeUndefined();
+	});
+
+	it("refuses paths outside the list and unauthorized callers", async () => {
+		const { fetcher } = upstream([]);
+		const balance = await proxy(new Request("https://app.example.com/api/cutpro/balance"), { apiKey: "k", prefix: "/api/cutpro", fetch: fetcher });
+		expect(balance.status).toBe(404);
+		const denied = await proxy(new Request("https://app.example.com/api/cutpro/models"), { apiKey: "k", prefix: "/api/cutpro", fetch: fetcher, authorize: () => false });
+		expect(denied.status).toBe(401);
+	});
+
+	it("serves the public price list at /prices", async () => {
+		const { fetcher, sent } = upstream([[200, { models: [] }]]);
+		await proxy(new Request("https://app.example.com/api/cutpro/prices"), { apiKey: "k", prefix: "/api/cutpro", fetch: fetcher });
+		expect(sent[0]?.url.href).toBe("https://api.cut.pro/public/generations/models");
+	});
+});
+
+describe("verifyWebhook", () => {
+	const secret = "whsec_test";
+	const body = '{"type":"generation.ready"}';
+	const sign = (t: number, payload = body) => `t=${t},v1=${createHmac("sha256", secret).update(`${t}.${payload}`).digest("hex")}`;
+
+	it("accepts a fresh signature of the exact body", async () => {
+		expect(await verifyWebhook(body, sign(Math.floor(Date.now() / 1000)), secret)).toBe(true);
+	});
+
+	it("refuses a changed body, an old timestamp and a missing header", async () => {
+		const now = Math.floor(Date.now() / 1000);
+		expect(await verifyWebhook(`${body} `, sign(now), secret)).toBe(false);
+		expect(await verifyWebhook(body, sign(now - 600), secret)).toBe(false);
+		expect(await verifyWebhook(body, null, secret)).toBe(false);
 	});
 });
