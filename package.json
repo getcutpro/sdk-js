@@ -1,0 +1,71 @@
+{
+	"name": "@cutpro/sdk",
+	"version": "0.1.0",
+	"description": "Cut.Pro API client for Node and edge: Seedance, Wan, Kling, Veo, Nano Banana, Seedream, GPT Image and Gemini TTS with one key, priced per second, image or 1,000 characters",
+	"license": "MIT",
+	"author": "Cut.Pro",
+	"homepage": "https://cut.pro/docs/en/generations",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/getcutpro/sdk-js.git"
+	},
+	"bugs": "https://github.com/getcutpro/sdk-js/issues",
+	"keywords": [
+		"cutpro",
+		"ai",
+		"api",
+		"sdk",
+		"video-generation",
+		"image-generation",
+		"text-to-speech",
+		"text-to-video",
+		"image-to-video",
+		"seedance",
+		"seedance-api",
+		"wan",
+		"kling",
+		"veo",
+		"nano-banana",
+		"seedream",
+		"gpt-image",
+		"grok-imagine",
+		"minimax",
+		"gemini-tts",
+		"pix"
+	],
+	"type": "module",
+	"sideEffects": false,
+	"engines": {
+		"node": ">=18"
+	},
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"import": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/index.js"
+			},
+			"require": {
+				"types": "./dist/index.d.cts",
+				"default": "./dist/index.cjs"
+			}
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsup src/index.ts --format esm,cjs --dts --clean",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run",
+		"prepublishOnly": "npm run typecheck && npm test && npm run build"
+	},
+	"devDependencies": {
+		"@types/node": "^22.20.5",
+		"tsup": "^9.0.0",
+		"typescript": "^5.9.3",
+		"vitest": "^5.1.0"
+	}
+}
