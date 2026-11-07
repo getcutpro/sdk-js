@@ -1,6 +1,6 @@
 {
 	"name": "@cutpro/sdk",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Cut.Pro API client for Bun, Node, Deno, edge and the browser: Seedance, Wan, Kling, Veo, Nano Banana, Seedream, GPT Image and Gemini TTS with one key, priced per second, image or 1,000 characters",
 	"license": "MIT",
 	"author": "Cut.Pro",

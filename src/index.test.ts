@@ -66,6 +66,7 @@ describe("CutPro", () => {
 		await client.models.list({ kind: "video", endpoint: "generations" });
 		expect(sent[0]?.url.toString()).toBe("https://api.cut.pro/api/v1/models?kind=video&endpoint=generations");
 		expect(sent[0]?.headers["x-api-key"]).toBe("key");
+		expect(sent[0]?.headers["user-agent"]).toBe(`cutpro-js/${(await import("../package.json")).version}`);
 	});
 
 	it("reads the public price list without a key", async () => {

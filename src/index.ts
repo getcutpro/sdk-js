@@ -11,6 +11,8 @@ const RETRY_BASE_MS = 500;
 const RETRYABLE = new Set([408, 425, 429, 500, 502, 503, 504]);
 // The proxy only forwards JSON requests; uploads go from your server with the SDK.
 const MAX_PROXY_BODY_BYTES = 1024 * 1024;
+// Kept in step with package.json: it is how the API tells SDK traffic apart from hand-written HTTP.
+const USER_AGENT = "cutpro-js/0.1.2";
 // What `proxy()` forwards: everything a browser app needs to price, start and follow a generation, nothing that reads the account.
 const PROXIED: readonly [string, RegExp][] = [
 	["GET", /^\/models(\/featured)?$/],
@@ -145,7 +147,8 @@ export class CutPro {
 		this.#workspaceId = options.workspaceId;
 		this.#timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
 		this.#fetch = options.fetch ?? ((input, init) => fetch(input, init));
-		this.#headers = options.headers ?? {};
+		// A browser either drops User-Agent or turns it into a CORS preflight, so only servers send it.
+		this.#headers = browser ? (options.headers ?? {}) : { "User-Agent": USER_AGENT, ...options.headers };
 		this.models = new Models(this);
 		this.generations = new Generations(this);
 		this.media = new MediaLibrary(this);
@@ -315,7 +318,7 @@ export async function proxy(request: Request, options: ProxyOptions = {}): Promi
 
 	const target = path === "/prices" ? new URL(PRICES_PATH, API_ORIGIN) : new URL(`${API_PATH}${path}`, API_ORIGIN);
 	target.search = url.search;
-	const headers = new Headers({ Accept: "application/json", "X-Api-Key": apiKey });
+	const headers = new Headers({ Accept: "application/json", "X-Api-Key": apiKey, "User-Agent": `${USER_AGENT} proxy` });
 	for (const name of ["content-type", "idempotency-key"]) {
 		const value = request.headers.get(name);
 		if (value) headers.set(name, value);
