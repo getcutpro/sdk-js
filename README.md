@@ -1,6 +1,6 @@
 # Cut.Pro SDK for Bun, Node, Deno, edge and the browser: Seedance, Wan, Kling, Veo and Nano Banana API
 
-[![npm](https://img.shields.io/npm/v/@cutpro/sdk)](https://www.npmjs.com/package/@cutpro/sdk) [![license](https://img.shields.io/npm/l/@cutpro/sdk)](LICENSE)
+[![CI](https://github.com/getcutpro/sdk-js/actions/workflows/ci.yml/badge.svg)](https://github.com/getcutpro/sdk-js/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@cutpro/sdk)](https://www.npmjs.com/package/@cutpro/sdk) [![license](https://img.shields.io/npm/l/@cutpro/sdk)](LICENSE)
 
 One API key for video, image and voice models: Seedance 2.5, Wan 3, Kling O3, Veo 3.1, Gemini Omni Flash, Nano Banana Pro, Seedream 5, Qwen Image, GPT Image, Grok Imagine, MiniMax and Gemini TTS voices. Priced per second of video, per image or per 1,000 characters of voice, in reais and dollars: see the [live price list](https://cut.pro/en/models). Pay with Pix or card; companies get an invoice.
 

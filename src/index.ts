@@ -4,16 +4,15 @@ const PRICES_PATH = "/public/generations/models";
 const MAX_SERVER_WAIT_SECONDS = 60;
 const DEFAULT_WAIT_TIMEOUT_MS = 10 * 60 * 1000;
 const DEFAULT_INTERVAL_MS = 1000;
-// Longer than the 60 seconds a create or a get may be held by the server.
+// Keep this above the server's 60-second long-poll limit.
 const DEFAULT_REQUEST_TIMEOUT_MS = 90 * 1000;
 const MAX_RETRIES = 2;
 const RETRY_BASE_MS = 500;
 const RETRYABLE = new Set([408, 425, 429, 500, 502, 503, 504]);
-// The proxy only forwards JSON requests; uploads go from your server with the SDK.
+// Keep uploads server-side because the proxy only forwards JSON.
 const MAX_PROXY_BODY_BYTES = 1024 * 1024;
-// Kept in step with package.json: it is how the API tells SDK traffic apart from hand-written HTTP.
-const USER_AGENT = "cutpro-js/0.1.2";
-// What `proxy()` forwards: everything a browser app needs to price, start and follow a generation, nothing that reads the account.
+const USER_AGENT = "cutpro-js/0.2.0";
+// Keep browser forwarding limited to model discovery and generation calls.
 const PROXIED: readonly [string, RegExp][] = [
 	["GET", /^\/models(\/featured)?$/],
 	["GET", /^\/prices$/],
@@ -21,7 +20,6 @@ const PROXIED: readonly [string, RegExp][] = [
 	["GET", /^\/generations\/[\w-]+$/],
 ];
 
-// The part of `fetch` the client calls, so a runtime's own extras (Bun's `preconnect`) are not required of a custom one.
 export type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 export interface CutProOptions {
@@ -109,7 +107,6 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 	});
 }
 
-// A relative base resolves against the page in a browser; anything else must be https, except a local server.
 function resolveBase(baseURL: string): string {
 	const base = new URL(baseURL, inBrowser() ? window.location.origin : undefined);
 	const local = base.hostname === "localhost" || base.hostname === "127.0.0.1" || base.hostname === "[::1]";
@@ -139,7 +136,7 @@ export class CutPro {
 		this.#apiKey = options.apiKey ?? (browser ? undefined : envApiKey());
 		if (browser && !options.dangerouslyAllowBrowser) {
 			if (this.#apiKey) throw new CutProError("API_KEY_IN_BROWSER", 0);
-			// The API answers no other site's browser, so a page talks to its own server's `proxy()`.
+			// Keep the API key on the server because the API rejects cross-origin browser requests.
 			if (options.baseURL === undefined) throw new CutProError("PROXY_REQUIRED_IN_BROWSER", 0);
 		}
 		this.#baseURL = resolveBase(options.baseURL ?? `${API_ORIGIN}${API_PATH}`);
@@ -147,16 +144,15 @@ export class CutPro {
 		this.#workspaceId = options.workspaceId;
 		this.#timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
 		this.#fetch = options.fetch ?? ((input, init) => fetch(input, init));
-		// A browser either drops User-Agent or turns it into a CORS preflight, so only servers send it.
+		// Omit User-Agent in browsers to avoid a CORS preflight.
 		this.#headers = browser ? (options.headers ?? {}) : { "User-Agent": USER_AGENT, ...options.headers };
 		this.models = new Models(this);
 		this.generations = new Generations(this);
 		this.media = new MediaLibrary(this);
 	}
 
-	/** @internal */
 	async request<T>(method: string, path: string, call: Call = {}): Promise<T> {
-		// The public price list lives outside /api/v1; a proxy serves it at /prices.
+		// Route public prices outside the versioned API prefix.
 		const target = path === "/prices" && this.#direct ? `${API_ORIGIN}${PRICES_PATH}` : `${this.#baseURL}${path}`;
 		const url = new URL(target);
 		for (const [key, value] of Object.entries(call.query ?? {})) if (value !== undefined) url.searchParams.set(key, String(value));
@@ -295,16 +291,13 @@ export async function verifyWebhook(rawBody: string, signature: string | null, s
 	const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
 	const digest = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${t}.${rawBody}`)));
 	const expected = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
-	// Every character is compared, so the time taken says nothing about where a forged signature goes wrong.
+	// Compare every character to avoid leaking the signature mismatch position.
 	let difference = 0;
 	for (let index = 0; index < expected.length; index++) difference |= expected.charCodeAt(index) ^ v1.charCodeAt(index);
 	return difference === 0;
 }
 
-/**
- * A route for your own server that lets a browser app use the SDK without ever seeing the key.
- * Works with Bun.serve, Next.js route handlers, Hono, Cloudflare Workers and Deno: `(request) => proxy(request, { prefix: "/api/cutpro", authorize })`.
- */
+/** Server route for forwarding allowlisted browser requests without exposing the API key. */
 export async function proxy(request: Request, options: ProxyOptions = {}): Promise<Response> {
 	const apiKey = options.apiKey ?? envApiKey();
 	if (!apiKey) return Response.json({ code: "API_KEY_MISSING" }, { status: 500 });
@@ -346,7 +339,7 @@ export interface GenerationRequest {
 	resolution?: string;
 	/** What to make, in any language, or the text a voice reads. */
 	prompt?: string;
-	/** The model's own fields from `parameters` in `models.list()`. */
+	/** The model's extra fields under the names in its `parameters` from `models.list()`; any other name fails with `OPTION_UNKNOWN`. */
 	options?: Record<string, OptionValue>;
 	/** Length of a video, one of the model's `seconds`. */
 	seconds?: number;
@@ -478,7 +471,6 @@ export interface ModelParameter {
 	maximum?: number;
 	maxItems?: number;
 	items?: string;
-	description?: string;
 }
 
 export interface Voice {

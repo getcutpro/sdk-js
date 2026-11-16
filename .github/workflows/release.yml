@@ -3,7 +3,7 @@ on:
   push:
     tags: ["v*.*.*"]
 permissions:
-  contents: read
+  contents: write
   id-token: write
 jobs:
   publish:
@@ -17,4 +17,16 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: bun install --frozen-lockfile
       - run: bun run typecheck && bun test && bun run build
-      - run: npm publish --provenance --access public
+      - name: Publish to npm with provenance
+        run: |
+          if npm view "@cutpro/sdk@${GITHUB_REF_NAME#v}" version >/dev/null 2>&1; then
+            echo "@cutpro/sdk@${GITHUB_REF_NAME#v} is already on npm."
+          else
+            npm publish --provenance --access public
+          fi
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="$(awk -v version="${GITHUB_REF_NAME#v}" '/^## / { keep = index($0, "## " version " ") == 1; next } keep' CHANGELOG.md)"
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "$notes"

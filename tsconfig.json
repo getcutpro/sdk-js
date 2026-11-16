@@ -7,9 +7,9 @@
 		"types": ["bun"],
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
-		"exactOptionalPropertyTypes": false,
 		"isolatedModules": true,
 		"declaration": true,
+		"rootDir": "src",
 		"skipLibCheck": true
 	},
 	"include": ["src/index.ts"]
