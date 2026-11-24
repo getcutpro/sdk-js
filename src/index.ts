@@ -11,7 +11,7 @@ const RETRY_BASE_MS = 500;
 const RETRYABLE = new Set([408, 425, 429, 500, 502, 503, 504]);
 // Keep uploads server-side because the proxy only forwards JSON.
 const MAX_PROXY_BODY_BYTES = 1024 * 1024;
-const USER_AGENT = "cutpro-js/0.2.0";
+const USER_AGENT = "cutpro-js/0.3.0";
 // Keep browser forwarding limited to model discovery and generation calls.
 const PROXIED: readonly [string, RegExp][] = [
 	["GET", /^\/models(\/featured)?$/],
@@ -539,7 +539,6 @@ export interface PublicPrice extends Money {
 	resolution: string;
 	/** The price without sound, for a video whose model has `audio: "optional"`. */
 	silent: Money | null;
-	lowest: boolean;
 }
 
 export interface PublicModel {
